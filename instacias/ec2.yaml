@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an Amazon Linux Web Server 
+
+Parameters:
+  KeyNamessh:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: "must be the name of an existing EC2 KeyPair."
+  
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-4fffc834
+    us-east-2:
+      AMI: ami-ea87a78f
+
+Resources:
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          packages:
+            yum:
+              httpd: []
+          files:
+            "/var/www/html/index.html":
+              content: 
+               <html>
+                 <body>
+                   <h1>WEB SERVER 1 </h1>
+                   <p>Hello World!</p>
+                 </body>
+                </html>
+              mode: '000644'
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              httpd:
+                enabled: 'true'
+                ensureRunning: 'true'
+
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', 'AMI']
+      InstanceType: t2.micro
+      KeyName: !Ref KeyNamessh
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet:
+            - !ImportValue demo-sg-ec2
+          SubnetId: !ImportValue PublicSubnet-1
+      Tags:
+      - Key: Name
+        Value: Web Server 1
+      UserData:
+        'Fn::Base64': !Sub |
+          #!/bin/bash -ex
+           yum update -y aws-cfn-bootstrap
+          /opt/aws/bin/cfn-init -v -s ${AWS::StackName} -r EC2Instance --region ${AWS::Region}
+
+Outputs:
+   EC2id1:
+    Description: ID OF THE Ec2 web 1 Instance
+    Value: !Ref EC2Instance
+    Export:
+      Name: "web1-ec2"
